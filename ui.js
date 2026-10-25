@@ -106,8 +106,11 @@ let db = null, userCap = null, myId = null, canWrite = null, boardDocs = [], boa
 let nick = store.get('fluffin-nick') || '';
 const mine = () => boardDocs.find(d => d.id === myId) || null;
 async function initBoard() {
-  if (!(window.claude && window.claude.use)) { boardState = 'off'; renderBoard(); return; }
-  try { [db, userCap] = await Promise.all([window.claude.use('db'), window.claude.use('user')]); } catch (e) { db = null; }
+  if (window.claude && window.claude.use) {
+    try { [db, userCap] = await Promise.all([window.claude.use('db'), window.claude.use('user')]); } catch (e) { db = null; }
+  } else if (window.FIREBASE_CONFIG && window.FIREBASE_CONFIG.apiKey && window.FamilyBoard) {
+    try { ({db, userCap} = await window.FamilyBoard.connect(window.FIREBASE_CONFIG)); } catch (e) { db = null; boardState = 'error'; renderBoard(); return; }
+  } else { boardState = 'off'; renderBoard(); return; }
   if (!db) { boardState = 'off'; renderBoard(); return; }
   if (userCap) {
     try { myId = await userCap.id(); } catch (e) { myId = null; }
