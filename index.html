@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>Fluffin's Cake Dash</title>
+<meta name="description" content="Fluffin rennt durch Wimbledon, den Würzbacher Weiher, Jörgs Garten und den Saarbrücker Staden.">
+<meta name="theme-color" content="#0e1a10">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Cake Dash">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/favicon-64.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<style>
+@font-face{font-family:'Fredoka';font-weight:400;font-display:swap;src:url(fonts/fredoka-latin-400-normal.woff2) format('woff2')}
+@font-face{font-family:'Fredoka';font-weight:500;font-display:swap;src:url(fonts/fredoka-latin-500-normal.woff2) format('woff2')}
+@font-face{font-family:'Fredoka';font-weight:600;font-display:swap;src:url(fonts/fredoka-latin-600-normal.woff2) format('woff2')}
+@font-face{font-family:'Fredoka';font-weight:700;font-display:swap;src:url(fonts/fredoka-latin-700-normal.woff2) format('woff2')}
+@font-face{font-family:'Lilita One';font-weight:400;font-display:swap;src:url(fonts/lilita-one-latin-400-normal.woff2) format('woff2')}
+</style>
+<style>
+/* Layout: one full-bleed game canvas; the menus are flat panels over a darkened, still-running scene.
+   No backdrop blur anywhere (it is the most expensive thing a phone can do over a live canvas). */
+:root{
+  --deep:#0e1a10; --panel:#1a3020; --panel-2:#223d28; --panel-3:#2d5034; --line:rgba(255,255,255,.08);
+  --cream:#fff6e4; --muted:#bfd2b7; --accent:#d9f04a; --accent-ink:#13200c; --pink:#ff9fc4; --pink-deep:#c45b86; --ink:#0b1408;
+  --display:'Lilita One','Fredoka',ui-rounded,system-ui,sans-serif;
+  --body:'Fredoka',ui-rounded,'Segoe UI Rounded','Segoe UI',system-ui,sans-serif;
+  color-scheme:dark;
+}
+[hidden]{display:none!important}
+*{box-sizing:border-box}
+html,body{height:100%;overflow:hidden;overscroll-behavior:none}
+body{margin:0;background:var(--deep);color:var(--cream);font-family:var(--body);-webkit-font-smoothing:antialiased}
+#stage{position:fixed;inset:0;touch-action:none;user-select:none;-webkit-user-select:none;
+  -webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;background:var(--deep)}
+#game{position:absolute;inset:0;width:100%;height:100%;display:block}
+.hud{position:absolute;z-index:6;display:flex;gap:8px;
+  top:calc(env(safe-area-inset-top,0px) + 10px);right:calc(env(safe-area-inset-right,0px) + 10px)}
+.icon-btn{width:44px;height:44px;border-radius:14px;border:0;padding:0;cursor:pointer;
+  background:rgba(11,20,8,.62);color:var(--cream);display:grid;place-items:center;box-shadow:inset 0 0 0 1px rgba(255,255,255,.1)}
+.icon-btn:hover{background:rgba(11,20,8,.8)}
+.icon-btn svg{width:22px;height:22px;display:block}
+.icon-btn:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+.screen{position:absolute;inset:0;z-index:5;overflow-y:auto;overscroll-behavior:contain;display:flex;cursor:default;
+  background:radial-gradient(120% 90% at 30% 15%,rgba(14,26,16,.55),rgba(9,16,10,.9) 70%);
+  padding-block:calc(env(safe-area-inset-top,0px) + 12px) calc(env(safe-area-inset-bottom,0px) + 14px);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.screen.dim{background:rgba(9,16,10,.72)}
+.wrap{margin:auto;width:min(1000px,100%);display:flex;flex-direction:column;gap:14px}
+.panel{background:var(--panel);border-radius:22px;box-shadow:inset 0 0 0 1px var(--line),0 18px 40px rgba(0,0,0,.35)}
+
+/* language picker */
+.lang-card{width:min(560px,100%);margin:auto;padding:26px 22px;display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center}
+.lang-card canvas{width:220px;height:165px}
+.lang-pick{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%}
+.big-choice{font:inherit;border:0;border-radius:18px;padding:16px 12px;cursor:pointer;background:var(--panel-2);color:var(--cream);
+  display:flex;flex-direction:column;gap:2px;align-items:center;box-shadow:inset 0 0 0 1px var(--line),0 5px 0 #0c180e}
+.big-choice b{font-family:var(--display);font-weight:400;font-size:1.7rem}
+.big-choice span{font-size:.85rem;color:var(--muted)}
+.big-choice:hover{background:var(--panel-3)}
+.big-choice:active{transform:translateY(3px);box-shadow:inset 0 0 0 1px var(--line),0 2px 0 #0c180e}
+.big-choice:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+
+/* menu */
+.topbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding-right:110px;min-height:46px}
+.logo{display:flex;flex-direction:column;line-height:.86;margin:0}
+.logo small{font-family:var(--display);font-size:1.05rem;color:var(--cream);letter-spacing:.02em}
+.logo b{font-family:var(--display);font-weight:400;font-size:clamp(2rem,5.4vw,3rem);color:var(--accent);
+  text-shadow:0 3px 0 #0b1408,0 0 18px rgba(217,240,74,.18);letter-spacing:.01em}
+.seg{display:inline-flex;background:var(--panel-2);border-radius:12px;padding:3px;gap:3px;box-shadow:inset 0 0 0 1px var(--line)}
+.seg button{font:600 .92rem var(--body);border:0;border-radius:9px;padding:7px 12px;cursor:pointer;background:transparent;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.seg button:focus-visible{outline:3px solid var(--cream);outline-offset:1px}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tab{font:600 1rem var(--body);border:0;border-radius:999px;padding:9px 18px;cursor:pointer;background:rgba(255,255,255,.06);color:var(--muted)}
+.tab[aria-selected="true"]{background:var(--cream);color:var(--ink)}
+.tab:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.play-grid{display:grid;grid-template-columns:minmax(200px,.85fr) minmax(0,1.6fr);gap:14px;align-items:start}
+.hero-panel{padding:14px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.hero-stage{border-radius:16px;background:radial-gradient(90% 80% at 50% 78%,#4f8a46,#2c5232 62%,#1d3a22);overflow:hidden;box-shadow:inset 0 -18px 30px rgba(0,0,0,.18)}
+.hero-stage canvas{width:100%;aspect-ratio:4/3;display:block}
+.chars{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.choice{font:inherit;text-align:left;border:2px solid transparent;border-radius:14px;background:var(--panel-2);color:var(--cream);cursor:pointer;padding:8px 10px;
+  display:flex;flex-direction:column;gap:2px;min-width:0;box-shadow:inset 0 0 0 1px var(--line)}
+.choice b{font-family:var(--display);font-weight:400;font-size:1.15rem;line-height:1.05}
+.choice small{font-size:.78rem;color:var(--muted);line-height:1.25}
+.choice[aria-pressed="true"]{border-color:var(--accent);background:var(--panel-3)}
+.choice:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.opts-panel{padding:16px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.label{margin:0;font-size:.74rem;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.group{display:flex;flex-direction:column;gap:8px;min-width:0}
+.maps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.map-btn{font:inherit;text-align:left;padding:0;border:2px solid transparent;border-radius:14px;overflow:hidden;background:var(--panel-2);color:var(--cream);cursor:pointer;
+  display:flex;flex-direction:column;min-width:0;box-shadow:inset 0 0 0 1px var(--line)}
+.map-btn canvas{width:100%;aspect-ratio:2/1;display:block;background:#86c9ee}
+.map-btn span{padding:7px 9px 9px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.map-btn b{font-family:var(--display);font-weight:400;font-size:1.02rem;line-height:1.05}
+.map-btn small{font-size:.76rem;color:var(--muted);line-height:1.25}
+.map-btn[aria-pressed="true"]{border-color:var(--accent)}
+.map-btn:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.outfits{display:flex;flex-wrap:wrap;gap:8px}
+.outfit{font:inherit;border:2px solid transparent;border-radius:14px;background:var(--panel-2);color:var(--cream);cursor:pointer;width:84px;padding:6px 4px 7px;
+  display:flex;flex-direction:column;align-items:center;gap:2px;box-shadow:inset 0 0 0 1px var(--line)}
+.outfit canvas{width:56px;height:46px}
+.outfit b{font-size:.74rem;font-weight:600;line-height:1.15;text-align:center}
+.outfit small{font-size:.68rem;color:var(--muted);text-align:center;line-height:1.15}
+.outfit[aria-pressed="true"]{border-color:var(--accent);background:var(--panel-3)}
+.outfit[aria-disabled="true"]{opacity:.55;cursor:not-allowed}
+.outfit:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.start-row{display:flex;align-items:center;gap:12px 16px;flex-wrap:wrap}
+.primary,.secondary{font:600 1.15rem var(--body);padding:13px 30px;border-radius:999px;border:0;cursor:pointer;display:inline-flex;align-items:center;gap:10px}
+.primary{background:var(--pink);color:#2a0f1c;box-shadow:0 5px 0 var(--pink-deep),0 10px 24px rgba(255,159,196,.22)}
+.primary:hover{filter:brightness(1.05)}
+.primary:active{transform:translateY(3px);box-shadow:0 2px 0 var(--pink-deep)}
+.primary svg{width:20px;height:20px}
+.secondary{background:var(--panel-2);color:var(--cream);box-shadow:inset 0 0 0 1px var(--line),0 5px 0 #0c180e}
+.secondary:active{transform:translateY(3px);box-shadow:inset 0 0 0 1px var(--line),0 2px 0 #0c180e}
+.primary:focus-visible,.secondary:focus-visible{outline:3px solid var(--accent);outline-offset:4px}
+.chip{font-family:var(--display);font-size:1rem;border-radius:10px;padding:5px 11px;background:rgba(255,255,255,.07);color:var(--cream)}
+.chip em{font-style:normal;color:var(--accent)}
+.hint{font-size:.86rem;color:var(--muted);margin:0;line-height:1.4}
+kbd{font-family:var(--body);font-size:.78rem;background:var(--panel-3);border-radius:6px;padding:1px 6px;color:var(--cream)}
+.tabpanel{min-width:0}
+.board-panel,.how-panel{padding:16px;display:flex;flex-direction:column;gap:12px}
+.board-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:5px;counter-reset:rank}
+.board-list li{display:grid;grid-template-columns:30px minmax(0,1fr) auto;align-items:center;gap:8px;background:var(--panel-2);border-radius:12px;padding:8px 12px;font-variant-numeric:tabular-nums}
+.board-list li::before{counter-increment:rank;content:counter(rank);font-family:var(--display);color:var(--muted);text-align:center;font-size:1.05rem}
+.board-list li:nth-child(1)::before{color:#ffd23f}
+.board-list li:nth-child(2)::before{color:#d9e1e6}
+.board-list li:nth-child(3)::before{color:#e3a36b}
+.board-list li.me{background:var(--panel-3);box-shadow:inset 0 0 0 2px var(--accent)}
+.board-list .who{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.board-list .pts{font-family:var(--display);font-size:1.15rem}
+.name-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.name-row label{font-size:.86rem;color:var(--muted)}
+.name-row input{-webkit-user-select:text;user-select:text;touch-action:manipulation;font:500 1rem var(--body);background:var(--panel-2);color:var(--cream);border:2px solid transparent;border-radius:10px;padding:8px 11px;width:min(240px,100%)}
+.name-row input:focus-visible{outline:none;border-color:var(--accent)}
+.legend{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}
+.legend li{display:flex;gap:10px;align-items:center;background:var(--panel-2);border-radius:14px;padding:6px 12px 6px 6px;min-width:0}
+.legend canvas{width:48px;height:48px;flex:none;border-radius:11px;background:rgba(255,255,255,.05)}
+.legend div{min-width:0}
+.legend b{display:block;font-weight:600;font-size:.93rem}
+.legend span{display:block;font-size:.8rem;color:var(--muted);line-height:1.3}
+
+/* pause and game over */
+.card{width:min(600px,100%);margin:auto;padding:20px;display:flex;flex-direction:column;gap:12px}
+.eyebrow{margin:0;font-size:.76rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-weight:600}
+.card h2{font-family:var(--display);font-weight:400;font-size:clamp(1.8rem,5.5vw,2.6rem);line-height:1;margin:0;text-wrap:balance}
+.lead{margin:0;color:var(--muted);line-height:1.45}
+.stats{display:flex;flex-wrap:wrap;gap:8px;margin:0;padding:0;list-style:none}
+.stats li{background:var(--panel-2);border-radius:12px;padding:6px 12px;font-variant-numeric:tabular-nums}
+.stats b{font-family:var(--display);font-weight:400;font-size:1.25rem;margin-right:4px}
+.stats li.hot{background:var(--accent);color:var(--accent-ink)}
+.actions{display:flex;gap:12px;flex-wrap:wrap}
+.rotate{display:none}
+@media (orientation:portrait) and (max-width:700px){.rotate{display:block}}
+@media (max-width:700px) and (orientation:portrait){
+  .play-grid{grid-template-columns:1fr}
+  .hero-stage canvas{aspect-ratio:16/8}
+}
+@media (max-width:760px) and (orientation:portrait){.maps{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:460px){.maps{grid-template-columns:1fr}.map-btn{flex-direction:row}.map-btn canvas{width:96px;aspect-ratio:auto;height:auto;flex:none}}
+@media (max-height:440px) and (orientation:landscape){
+  .wrap{gap:9px}.topbar{min-height:40px}.logo b{font-size:1.8rem}
+  .hero-stage canvas{aspect-ratio:16/9}
+  .map-btn small,.choice small{display:none}
+  .opts-panel{gap:10px;padding:12px}
+  .legend span{display:none}
+}
+#menuScreen .wrap{margin:0 auto}
+@media (max-width:700px),(max-height:500px){
+  .start-row{position:fixed;left:0;right:0;bottom:0;z-index:7;justify-content:center;
+    padding:22px max(16px,env(safe-area-inset-left,0px)) calc(env(safe-area-inset-bottom,0px) + 12px);
+    background:linear-gradient(to top,rgba(9,16,10,.97) 55%,rgba(9,16,10,0))}
+  #tabPlay{padding-bottom:84px}
+}
+@media (max-height:440px){.lang-card{padding:14px 18px;gap:8px}.lang-card canvas{width:150px;height:112px}.big-choice{padding:10px}}
+@media (prefers-reduced-motion:reduce){.primary,.secondary,.big-choice{transition:none}}
+</style>
+
+</head>
+<body>
+<div id="stage">
+  <canvas id="game" aria-label="Fluffin's Cake Dash"></canvas>
+  <div class="hud">
+    <button class="icon-btn" id="btnSound" type="button" aria-label="Sound"></button>
+    <button class="icon-btn" id="btnFs" type="button" aria-label="Fullscreen"></button>
+    <button class="icon-btn" id="btnPause" type="button" aria-label="Pause" hidden>
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4.5" height="14" rx="1.5"/><rect x="13.5" y="5" width="4.5" height="14" rx="1.5"/></svg>
+    </button>
+  </div>
+
+  <section class="screen" id="langScreen" hidden>
+    <div class="panel lang-card">
+      <canvas id="heroLang" width="440" height="330" aria-hidden="true"></canvas>
+      <div class="logo" style="align-items:center"><small>Fluffin’s</small><b>Cake Dash</b></div>
+      <p class="lead">Sprache wählen · Choose your language</p>
+      <div class="lang-pick">
+        <button class="big-choice" type="button" data-lang="de"><b>Deutsch</b><span>Los geht’s</span></button>
+        <button class="big-choice" type="button" data-lang="en"><b>English</b><span>Let’s go</span></button>
+      </div>
+    </div>
+  </section>
+
+  <section class="screen" id="menuScreen" hidden>
+    <div class="wrap">
+      <div class="topbar">
+        <h1 class="logo"><small>Fluffin’s</small><b>Cake Dash</b></h1>
+        <div class="seg" role="group" id="langSeg" aria-label="Sprache">
+          <button type="button" data-lang="de" aria-pressed="true">DE</button>
+          <button type="button" data-lang="en" aria-pressed="false">EN</button>
+        </div>
+      </div>
+      <div class="tabs" role="tablist">
+        <button class="tab" role="tab" type="button" data-tab="play" id="tabBtnPlay" aria-selected="true">Spielen</button>
+        <button class="tab" role="tab" type="button" data-tab="board" id="tabBtnBoard" aria-selected="false">Bestenliste</button>
+        <button class="tab" role="tab" type="button" data-tab="how" id="tabBtnHow" aria-selected="false">So geht’s</button>
+      </div>
+
+      <div class="tabpanel" id="tabPlay" role="tabpanel">
+        <div class="play-grid">
+          <div class="panel hero-panel">
+            <div class="hero-stage"><canvas id="hero" width="480" height="360" aria-hidden="true"></canvas></div>
+            <p class="label" id="lblChar">Hund</p>
+            <div class="chars">
+              <button class="choice" type="button" data-char="fluffin" aria-pressed="true"><b>Fluffin</b><small id="charDescF"></small></button>
+              <button class="choice" type="button" data-char="marli" aria-pressed="false"><b>Marly</b><small id="charDescM"></small></button>
+            </div>
+          </div>
+          <div class="panel opts-panel">
+            <div class="group">
+              <p class="label" id="lblMap">Map</p>
+              <div class="maps">
+                <button class="map-btn" type="button" data-map="common"><canvas width="320" height="160" aria-hidden="true"></canvas><span><b></b><small></small></span></button>
+                <button class="map-btn" type="button" data-map="weiher"><canvas width="320" height="160" aria-hidden="true"></canvas><span><b></b><small></small></span></button>
+                <button class="map-btn" type="button" data-map="garden"><canvas width="320" height="160" aria-hidden="true"></canvas><span><b></b><small></small></span></button>
+                <button class="map-btn" type="button" data-map="staden"><canvas width="320" height="160" aria-hidden="true"></canvas><span><b></b><small></small></span></button>
+              </div>
+            </div>
+            <div class="group">
+              <p class="label" id="lblOutfit">Outfit</p>
+              <div class="outfits" id="outfits"></div>
+            </div>
+            <div class="start-row">
+              <button class="primary" type="button" id="startBtn"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l13-7.5z"/></svg><span id="startLbl">Start</span></button>
+              <span class="chip" id="bestChip"></span>
+            </div>
+            <p class="hint" id="ovHint"></p>
+            <p class="hint rotate" id="ovRotate"></p>
+          </div>
+        </div>
+      </div>
+
+      <div class="tabpanel" id="tabBoard" role="tabpanel" hidden>
+        <div class="panel board-panel">
+          <div class="seg" role="group" id="boardSeg">
+            <button type="button" data-bmap="common">Wimbledon</button>
+            <button type="button" data-bmap="weiher">Weiher</button>
+            <button type="button" data-bmap="garden">Garten</button>
+            <button type="button" data-bmap="staden">Staden</button>
+          </div>
+          <ol class="board-list" id="boardList"></ol>
+          <p class="hint" id="boardNote"></p>
+          <div class="name-row" id="nameRow" hidden><label for="nick" id="lblNick">Name</label><input id="nick" type="text" maxlength="16" autocomplete="nickname"></div>
+        </div>
+      </div>
+
+      <div class="tabpanel" id="tabHow" role="tabpanel" hidden>
+        <div class="panel how-panel">
+          <p class="hint" id="howHint"></p>
+          <ul class="legend" id="legend"></ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="screen dim" id="pauseScreen" hidden>
+    <div class="panel card">
+      <p class="eyebrow" id="pauseEyebrow"></p>
+      <h2 id="pauseTitle"></h2>
+      <p class="lead" id="pauseBody"></p>
+      <div class="actions">
+        <button class="primary" type="button" id="resumeBtn"></button>
+        <button class="secondary" type="button" id="pauseMenuBtn"></button>
+      </div>
+    </div>
+  </section>
+
+  <section class="screen dim" id="overScreen" hidden>
+    <div class="panel card">
+      <p class="eyebrow" id="overEyebrow"></p>
+      <h2 id="overTitle"></h2>
+      <p class="lead" id="overBody"></p>
+      <ul class="stats" id="overStats"></ul>
+      <ol class="board-list" id="overBoard"></ol>
+      <div class="actions">
+        <button class="primary" type="button" id="againBtn"></button>
+        <button class="secondary" type="button" id="overMenuBtn"></button>
+      </div>
+    </div>
+  </section>
+
+  <div id="probe" style="position:absolute;left:0;top:0;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)"></div>
+</div>
+
+<script src="i18n.js"></script>
+<script src="art.js"></script>
+<script src="scenery.js"></script>
+<script src="staden.js"></script>
+<script src="audio.js"></script>
+<script src="game.js"></script>
+<script src="ui.js"></script>
+<script>
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
+</script>
+</body>
+</html>
